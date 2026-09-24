@@ -295,25 +295,69 @@ function bind() {
   if (clearBtn) clearBtn.addEventListener("click", function () { CART = {}; saveCart(); renderCart(); refresh(); });
 }
 async function loadJSON(url) {
-  try { var r = await fetch(url); if (!r.ok) return []; return await r.json(); } catch (e) { return []; }
+  try {
+    var r = await fetch(url);
+    if (!r.ok) return [];
+    return await r.json();
+  } catch (e) {
+    return [];
+  }
 }
 async function main() {
   loadCart();
+  // matrix data
   try {
     var urls = ["data/0.json", "data/1.json", "data/2.json", "data/3.json", "data.json"];
     var parts = await Promise.all(urls.map(loadJSON));
-    var seen = new Set(); DATA = [];
+    var seen = new Set();
+    DATA = [];
     parts.forEach(function (part) {
       part.forEach(function (d) {
         var key = d.name + "|" + d.brand + "|" + d.strength;
-        if (seen.has(key)) return; seen.add(key); DATA.push(d);
+        if (seen.has(key)) return;
+        seen.add(key);
+        DATA.push(d);
       });
     });
-  } catch (e) { DATA = []; }
+  } catch (e) {
+    DATA = [];
+  }
   try {
-    var pa = await Promise.all([loadJSON("pm0.json"), loadJSON("pm1.json")]);
-    PRODUCTS = (pa[0] || []).concat(pa[1] || []);
-  } catch (e) { PRODUCTS = []; }
-  initFilters(); initOrderFilters(); bind(); refresh();
+    var parts = await Promise.all(Array.from({length:20},function(_,i){return i}).map(function (i) {
+      return fetch("cat" + i + ".b64").then(function (r) { return r.ok ? r.text() : ""; });
+    }));
+    var b64 = parts.join("").replace(/\n/g, "");
+    if (!b64) { PRODUCTS = []; }
+    else {
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var ds = new DecompressionStream("gzip");
+      var stream = new Blob([bytes]).stream().pipeThrough(ds);
+      var buf = await new Response(stream).arrayBuffer();
+      var raw = JSON.parse(new TextDecoder().decode(buf));
+      PRODUCTS = raw.map(function (p) {
+        return {
+          id: p.id,
+          name: p.n,
+          flavor: p.f,
+          brand: p.b,
+          weight: p.w || "",
+          price: p.p,
+          source: p.s,
+          sku: p.k || "",
+          rating: p.r || "",
+          line: p.l || ""
+        };
+      });
+    }
+  } catch (e) {
+    console.error("products load failed", e);
+    PRODUCTS = [];
+  }
+  initFilters();
+  initOrderFilters();
+  bind();
+  refresh();
 }
 main();
