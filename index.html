@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HOOKAHBASE — Матрица вкусов табака</title>
+  <meta name="description" content="Матрица вкусов табака для кальяна: бренды, крепость, категории" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-mark">HB</span>
+        <div>
+          <h1>HOOKAHBASE</h1>
+          <p class="tagline">Матрица вкусов табака</p>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="filters card">
+      <div class="search-wrap">
+        <input type="search" id="search" placeholder="Поиск: вкус, бренд, название…" autocomplete="off" />
+      </div>
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>Категория</label>
+          <select id="filter-category">
+            <option value="">Все</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Бренд</label>
+          <select id="filter-brand">
+            <option value="">Все</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Крепость</label>
+          <div class="chips" id="filter-strength">
+            <button type="button" class="chip active" data-value="">Все</button>
+            <button type="button" class="chip chip-light" data-value="Лёгкий">Лёгкий</button>
+            <button type="button" class="chip chip-medium" data-value="Средний">Средний</button>
+            <button type="button" class="chip chip-strong" data-value="Крепкий">Крепкий</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view-tabs">
+      <button type="button" class="tab active" data-view="list">Список</button>
+      <button type="button" class="tab" data-view="matrix">Матрица</button>
+      <button type="button" class="tab" data-view="brands">По брендам</button>
+    </section>
+
+    <section id="view-list" class="view card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Вкус</th>
+              <th>Название</th>
+              <th>Бренд</th>
+              <th>Крепость</th>
+              <th>Категория</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="empty-list" hidden>Ничего не найдено</p>
+    </section>
+
+    <section id="view-matrix" class="view" hidden>
+      <div id="matrix-container"></div>
+      <p class="empty" id="empty-matrix" hidden>Ничего не найдено</p>
+    </section>
+
+    <section id="view-brands" class="view" hidden>
+      <div id="brands-container"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>HOOKAHBASE · данные для работы заведения · <a href="https://github.com/alexghy158-art/HOOKAHBASE" target="_blank" rel="noopener">GitHub</a></p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
