@@ -45,7 +45,7 @@ function renderStats(filtered) {
     '<div class="stat"><strong>' + brands.size + "</strong> брендов</div>" +
     '<div class="stat"><strong>' + PRODUCTS.length + "</strong> в прайсе</div>" +
     (cartCount ? '<div class="stat"><strong>' + cartCount + "</strong> в заказе</div>" : "") +
-    '<div class="stat">показано <strong>' + filtered.length + "</strong></div>';
+    '<div class="stat">показано <strong>' + filtered.length + "</strong></div>";
 }
 function renderList(rows) {
   const tbody = $("#table-body");
