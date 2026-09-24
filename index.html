@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HOOKAHBASE — Матрица вкусов табака</title>
-  <meta name="description" content="Матрица вкусов табака для кальяна: бренды, крепость, категории" />
+  <meta name="description" content="Матрица вкусов табака и заказ по прайсу" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
@@ -17,7 +17,7 @@
         <span class="logo-mark">HB</span>
         <div>
           <h1>HOOKAHBASE</h1>
-          <p class="tagline">Матрица вкусов табака</p>
+          <p class="tagline">Матрица вкусов и заказ табака</p>
         </div>
       </div>
       <div class="stats" id="stats"></div>
@@ -25,22 +25,25 @@
   </header>
 
   <main class="container">
-    <section class="filters card">
+    <section class="view-tabs">
+      <button type="button" class="tab active" data-view="list">Список</button>
+      <button type="button" class="tab" data-view="matrix">Матрица</button>
+      <button type="button" class="tab" data-view="brands">По брендам</button>
+      <button type="button" class="tab" data-view="order">Заказ</button>
+    </section>
+
+    <section class="filters card" id="matrix-filters">
       <div class="search-wrap">
         <input type="search" id="search" placeholder="Поиск: вкус, бренд, название…" autocomplete="off" />
       </div>
       <div class="filter-row">
         <div class="filter-group">
           <label>Категория</label>
-          <select id="filter-category">
-            <option value="">Все</option>
-          </select>
+          <select id="filter-category"><option value="">Все</option></select>
         </div>
         <div class="filter-group">
           <label>Бренд</label>
-          <select id="filter-brand">
-            <option value="">Все</option>
-          </select>
+          <select id="filter-brand"><option value="">Все</option></select>
         </div>
         <div class="filter-group">
           <label>Крепость</label>
@@ -52,12 +55,6 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <section class="view-tabs">
-      <button type="button" class="tab active" data-view="list">Список</button>
-      <button type="button" class="tab" data-view="matrix">Матрица</button>
-      <button type="button" class="tab" data-view="brands">По брендам</button>
     </section>
 
     <section id="view-list" class="view card">
@@ -86,14 +83,45 @@
     <section id="view-brands" class="view" hidden>
       <div id="brands-container"></div>
     </section>
+
+    <section id="view-order" class="view" hidden>
+      <div class="order-layout">
+        <div class="order-catalog card">
+          <div class="order-filters">
+            <input type="search" id="order-search" placeholder="Поиск по прайсу: вкус, бренд, артикул…" />
+            <select id="order-brand"><option value="">Все бренды</option></select>
+            <select id="order-source"><option value="">Все прайсы</option></select>
+          </div>
+          <div class="order-list" id="order-list"></div>
+        </div>
+        <div class="order-side">
+          <div class="card order-cart">
+            <h2>Текущий заказ</h2>
+            <div id="cart-items" class="cart-items"></div>
+            <div class="cart-total">
+              <span>Итого</span>
+              <strong id="cart-total">0 ₽</strong>
+            </div>
+            <div class="cart-actions">
+              <input type="text" id="order-note" placeholder="Комментарий к заказу (необязательно)" />
+              <button type="button" class="btn btn-primary" id="btn-save-order">Сохранить заказ</button>
+              <button type="button" class="btn btn-ghost" id="btn-clear-cart">Очистить</button>
+            </div>
+          </div>
+          <div class="card order-history">
+            <h2>История заказов</h2>
+            <div id="order-history"></div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
     <div class="container">
-      <p>HOOKAHBASE · данные для работы заведения · <a href="https://github.com/alexghy158-art/HOOKAHBASE" target="_blank" rel="noopener">GitHub</a></p>
+      <p>HOOKAHBASE · <a href="https://github.com/alexghy158-art/HOOKAHBASE" target="_blank" rel="noopener">GitHub</a></p>
     </div>
   </footer>
-
   <script src="app.js"></script>
 </body>
 </html>
