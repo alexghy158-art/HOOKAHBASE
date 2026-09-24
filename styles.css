@@ -441,3 +441,98 @@ main.container { padding-top: 1.5rem; padding-bottom: 3rem; }
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
 }
+
+/* Budget bar */
+.budget-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  align-items: stretch;
+}
+.budget-bar-compact {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+.budget-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem 0.65rem;
+  background: #fafaf9;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.budget-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.budget-item strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.budget-remain {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.budget-remain .budget-label { color: #15803d; }
+.budget-ok { color: #15803d; }
+.budget-neg { color: #b91c1c; }
+.budget-remain:has(.budget-neg) {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+/* Other tab */
+.other-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .other-layout { grid-template-columns: 1fr; }
+}
+.other-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0.35rem 0 0.85rem;
+}
+.other-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.other-form input[type="text"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+.other-form input[type="number"] {
+  width: 140px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+.other-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #f5f5f4;
+  font-size: 0.9rem;
+}
+.other-item:last-child { border-bottom: none; }
+.other-list-card h2,
+.other-form-card h2 {
+  margin-bottom: 0.25rem;
+}
