@@ -69,7 +69,6 @@ function renderMatrix(rows) {
     return;
   }
   empty.hidden = true;
-
   const byCat = new Map();
   for (const d of rows) {
     if (!byCat.has(d.category)) byCat.set(d.category, new Map());
@@ -78,7 +77,6 @@ function renderMatrix(rows) {
     const bucket = byTaste.get(d.taste);
     if (bucket[d.strength]) bucket[d.strength].push(d.name);
   }
-
   let html = "";
   for (const [cat, tastes] of byCat) {
     html += `<div class="matrix-block"><div class="matrix-cat">${esc(cat)}</div>`;
@@ -110,7 +108,6 @@ function renderBrands(rows) {
     byBrand.get(b).push(d);
   }
   const sorted = [...byBrand.entries()].sort((a, b) => b[1].length - a[1].length);
-
   cont.innerHTML = sorted
     .map(([brand, items]) => {
       const c = { "Лёгкий": 0, "Средний": 0, "Крепкий": 0 };
@@ -131,17 +128,13 @@ function renderBrands(rows) {
           </div>
         </div>
         <div class="brand-list">
-          ${items
-            .map(
-              (d) => `
+          ${items.map((d) => `
             <div class="brand-item">
               <div><strong>${esc(d.taste)}</strong></div>
               <div>${esc(d.name)}</div>
               <div><span class="${badgeClass(d.strength)}">${esc(d.strength || "—")}</span></div>
               <div class="cat-tag">${esc(d.category)}</div>
-            </div>`
-            )
-            .join("")}
+            </div>`).join("")}
         </div>
       </div>`;
     })
@@ -150,10 +143,10 @@ function renderBrands(rows) {
 
 function esc(s) {
   return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, """);
 }
 
 function refresh() {
@@ -210,8 +203,20 @@ function bind() {
 
 async function main() {
   try {
-    const res = await fetch("data.json");
-    DATA = await res.json();
+    const urls = ["data/0.json", "data/1.json", "data/2.json", "data/3.json", "data.json"];
+    const parts = await Promise.all(
+      urls.map((u) => fetch(u).then((r) => (r.ok ? r.json() : [])).catch(() => []))
+    );
+    const seen = new Set();
+    DATA = [];
+    for (const part of parts) {
+      for (const d of part) {
+        const key = d.name + "|" + d.brand + "|" + d.strength;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        DATA.push(d);
+      }
+    }
   } catch (e) {
     console.error(e);
     DATA = [];
