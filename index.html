@@ -23,15 +23,14 @@
       <div class="stats" id="stats"></div>
     </div>
   </header>
-
   <main class="container">
     <section class="view-tabs">
       <button type="button" class="tab active" data-view="list">Список</button>
       <button type="button" class="tab" data-view="matrix">Матрица</button>
       <button type="button" class="tab" data-view="brands">По брендам</button>
       <button type="button" class="tab" data-view="order">Заказ</button>
+      <button type="button" class="tab" data-view="other">Другое</button>
     </section>
-
     <section class="filters card" id="matrix-filters">
       <div class="search-wrap">
         <input type="search" id="search" placeholder="Поиск: вкус, бренд, название…" autocomplete="off" />
@@ -56,35 +55,45 @@
         </div>
       </div>
     </section>
-
     <section id="view-list" class="view card">
       <div class="table-wrap">
         <table class="data-table">
-          <thead>
-            <tr>
-              <th>Вкус</th>
-              <th>Название</th>
-              <th>Бренд</th>
-              <th>Крепость</th>
-              <th>Категория</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Вкус</th><th>Название</th><th>Бренд</th><th>Крепость</th><th>Категория</th></tr></thead>
           <tbody id="table-body"></tbody>
         </table>
       </div>
       <p class="empty" id="empty-list" hidden>Ничего не найдено</p>
     </section>
-
     <section id="view-matrix" class="view" hidden>
       <div id="matrix-container"></div>
       <p class="empty" id="empty-matrix" hidden>Ничего не найдено</p>
     </section>
-
     <section id="view-brands" class="view" hidden>
       <div id="brands-container"></div>
     </section>
-
     <section id="view-order" class="view" hidden>
+      <div class="budget-bar card" id="budget-bar">
+        <div class="budget-item">
+          <span class="budget-label">Бюджет на месяц</span>
+          <strong id="budget-total">240 000 ₽</strong>
+        </div>
+        <div class="budget-item">
+          <span class="budget-label">Потрачено (заказы)</span>
+          <strong id="budget-orders">0 ₽</strong>
+        </div>
+        <div class="budget-item">
+          <span class="budget-label">Потрачено (другое)</span>
+          <strong id="budget-other">0 ₽</strong>
+        </div>
+        <div class="budget-item">
+          <span class="budget-label">В корзине</span>
+          <strong id="budget-cart">0 ₽</strong>
+        </div>
+        <div class="budget-item budget-remain">
+          <span class="budget-label">Останется</span>
+          <strong id="budget-remain">240 000 ₽</strong>
+        </div>
+      </div>
       <div class="order-layout">
         <div class="order-catalog card">
           <div class="order-filters">
@@ -98,10 +107,7 @@
           <div class="card order-cart">
             <h2>Текущий заказ</h2>
             <div id="cart-items" class="cart-items"></div>
-            <div class="cart-total">
-              <span>Итого</span>
-              <strong id="cart-total">0 ₽</strong>
-            </div>
+            <div class="cart-total"><span>Итого</span><strong id="cart-total">0 ₽</strong></div>
             <div class="cart-actions">
               <input type="text" id="order-note" placeholder="Комментарий к заказу (необязательно)" />
               <button type="button" class="btn btn-primary" id="btn-save-order">Сохранить заказ</button>
@@ -115,8 +121,38 @@
         </div>
       </div>
     </section>
+    <section id="view-other" class="view" hidden>
+      <div class="other-layout">
+        <div class="card other-form-card">
+          <h2>Прочие расходы</h2>
+          <p class="other-hint">Вносите любые траты вне прайса — они учитываются в месячном бюджете 240 000 ₽.</p>
+          <div class="other-form">
+            <input type="text" id="other-name" placeholder="Название (аренда, доставка, уголь…)" />
+            <input type="number" id="other-amount" placeholder="Сумма, ₽" min="0" step="1" />
+            <button type="button" class="btn btn-primary" id="btn-add-other">Добавить</button>
+          </div>
+          <div class="budget-bar budget-bar-compact" id="budget-bar-other">
+            <div class="budget-item">
+              <span class="budget-label">Бюджет</span>
+              <strong id="budget-total-o">240 000 ₽</strong>
+            </div>
+            <div class="budget-item">
+              <span class="budget-label">Все расходы</span>
+              <strong id="budget-spent-o">0 ₽</strong>
+            </div>
+            <div class="budget-item budget-remain">
+              <span class="budget-label">Останется</span>
+              <strong id="budget-remain-o">240 000 ₽</strong>
+            </div>
+          </div>
+        </div>
+        <div class="card other-list-card">
+          <h2>Список расходов</h2>
+          <div id="other-list"></div>
+        </div>
+      </div>
+    </section>
   </main>
-
   <footer class="footer">
     <div class="container">
       <p>HOOKAHBASE · <a href="https://github.com/alexghy158-art/HOOKAHBASE" target="_blank" rel="noopener">GitHub</a></p>
