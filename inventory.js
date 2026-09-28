@@ -16,7 +16,7 @@ function stockQty(id) {
   return STOCK[id] || 0;
 }
 function setStock(id, qty) {
-  qty = Math.max(0, parseInt(qty, 10) || 0;
+  qty = Math.max(0, parseInt(qty, 10) || 0);
   if (!qty) delete STOCK[id];
   else STOCK[id] = qty;
   saveStock();
@@ -69,7 +69,7 @@ function renderInventory() {
   var totals = inventoryTotals();
   var rows = getInventoryFiltered();
   if (!rows.length) {
-    list.innerHTML = '<p class="empty">На полке пусто или ничего не найдено. Снимите галочку «Только на полке», чтобы проставить остатки.</p>';
+    list.innerHTML = '<p class="empty">На полке пусто. Снимите галочку «Только на полке», чтобы проставить остатки.</p>';
   } else {
     var slice = rows.slice(0, 250);
     list.innerHTML = slice.map(function (p) {
@@ -82,7 +82,7 @@ function renderInventory() {
         '<div class="order-row-price">' + fmt(p.price) +
         (qty ? '<div class="order-row-meta">на полке: ' + fmt(line) + "</div>" : "") + "</div>" +
         '<div class="order-row-qty">' +
-        '<button type="button" class="btn-sm" data-stock-minus="' + esc(p.id) + '">−</button>' +
+        '<button type="button" class="btn-sm" data-stock-minus="' + esc(p.id) + '">-</button>' +
         '<input class="inv-qty" type="number" min="0" step="1" value="' + qty + '" data-stock-input="' + esc(p.id) + '" />' +
         '<button type="button" class="btn-sm" data-stock-plus="' + esc(p.id) + '">+</button>' +
         "</div></div>";
