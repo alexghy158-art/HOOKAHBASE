@@ -1,11 +1,14 @@
 /* Inventory: grams by date, +/- vs previous snapshot */
 const STORAGE_STOCK = "hookahbase_stock_g_v1";
 const STORAGE_DAYS = "hookahbase_stock_by_day_v1";
+const STORAGE_CUSTOM = "hookahbase_inv_custom_v1";
 let DAYS = {};
+let CUSTOM = [];
 let INV_DATE = todayISO();
 let STOCK = {};
 let inventoryOnlyShelf = true;
 let inventoryBound = false;
+const EXTRA_BRANDS = ["Deus", "Blackburn", "Наш", "Overdose", "Trofimoff", "Bonche", "Antagonist", "Северный", "Sarma", "Satyr", "MustHave", "Догма", "Xuligan", "Jent", "Sapphire", "Starline"];
 
 const JAR_TARE_RULES = [
   { keys: ["darkside sabotage", "ds sabotage", "саботаж"], tare: 37 },
@@ -35,7 +38,7 @@ const JAR_TARE_RULES = [
   if (document.getElementById("inv-style")) return;
   var st = document.createElement("style");
   st.id = "inv-style";
-  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.6rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit}.order-row-qty{display:flex;align-items:center;gap:.3rem}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:58vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}.inv-daybar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 .75rem}.inv-daybar input[type=date]{padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;font:inherit;background:var(--bg)}.inv-hist{margin-top:.9rem}.inv-hist-item{display:flex;justify-content:space-between;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid #f5f5f4;font-size:.88rem;cursor:pointer}.inv-hist-item.active{font-weight:700}.inv-delta-plus{color:#15803d}.inv-delta-minus{color:#b91c1c}.inv-delta-zero{color:var(--muted)}";
+  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.6rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit}.order-row-qty{display:flex;align-items:center;gap:.3rem}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:58vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}.inv-daybar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 .75rem}.inv-daybar input[type=date],.inv-add input,.inv-add select{padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;font:inherit;background:var(--bg)}.inv-hist{margin-top:.9rem}.inv-hist-item{display:flex;justify-content:space-between;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid #f5f5f4;font-size:.88rem;cursor:pointer}.inv-hist-item.active{font-weight:700}.inv-delta-plus{color:#15803d}.inv-delta-minus{color:#b91c1c}.inv-delta-zero{color:var(--muted)}.inv-add{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .75rem;align-items:center}.badge-own{font-size:.7rem;color:#0f766e;background:#ccfbf1;padding:.1rem .4rem;border-radius:4px}";
   document.head.appendChild(st);
 })();
 
@@ -47,6 +50,48 @@ function formatRuDate(iso) {
   if (!iso) return "—";
   var p = iso.split("-");
   return p[2] + "." + p[1] + "." + p[0];
+}
+function loadCustom() {
+  try { CUSTOM = JSON.parse(localStorage.getItem(STORAGE_CUSTOM) || "[]") || []; } catch (e) { CUSTOM = []; }
+}
+function saveCustom() {
+  try { localStorage.setItem(STORAGE_CUSTOM, JSON.stringify(CUSTOM)); } catch (e) {}
+}
+function catalogItems() {
+  return (PRODUCTS || []).concat(CUSTOM || []);
+}
+function findInvProduct(id) {
+  var list = catalogItems();
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+  if (typeof findProduct === "function") return findProduct(id);
+  return null;
+}
+function addCustomItem() {
+  var brandEl = document.getElementById("inv-new-brand");
+  var nameEl = document.getElementById("inv-new-name");
+  var brand = ((brandEl && brandEl.value) || "").trim();
+  var flavor = ((nameEl && nameEl.value) || "").trim();
+  if (!brand || !flavor) { alert("Укажите бренд и вкус"); return; }
+  var exists = catalogItems().some(function (p) {
+    return (p.brand || "").toLowerCase() === brand.toLowerCase() && ((p.flavor || p.name) || "").toLowerCase() === flavor.toLowerCase();
+  });
+  if (exists) { alert("Такая позиция уже есть"); return; }
+  CUSTOM.push({
+    id: "own-" + Date.now(),
+    brand: brand,
+    flavor: flavor,
+    name: brand + " — " + flavor,
+    weight: "100 г",
+    source: "своя позиция",
+    own: true
+  });
+  saveCustom();
+  if (nameEl) nameEl.value = "";
+  inventoryOnlyShelf = false;
+  var only = document.getElementById("inv-only-shelf");
+  if (only) only.checked = false;
+  initInventoryFilters();
+  renderInventory();
 }
 function loadDays() {
   try { DAYS = JSON.parse(localStorage.getItem(STORAGE_DAYS) || "{}") || {}; } catch (e) { DAYS = {}; }
@@ -123,24 +168,27 @@ function totalsForMap(map) {
   return { positions: positions, grams: grams };
 }
 function inventoryTotals() { return totalsForMap(STOCK); }
+function allBrands() {
+  return Array.from(new Set(catalogItems().map(function (p) { return p.brand; }).filter(Boolean).concat(EXTRA_BRANDS))).sort(function (a, b) { return a.localeCompare(b, "ru"); });
+}
 function getInventoryFiltered() {
   var q = (($("#inv-search") && $("#inv-search").value) || "").trim().toLowerCase();
   var brand = ($("#inv-brand") && $("#inv-brand").value) || "";
   var source = ($("#inv-source") && $("#inv-source").value) || "";
   var prev = prevDateBefore(INV_DATE);
-  return (PRODUCTS || []).filter(function (p) {
+  return catalogItems().filter(function (p) {
     var g = stockGrams(p.id);
     var pg = prev ? gramsOf(DAYS[prev], p.id) : 0;
     if (inventoryOnlyShelf && g <= 0 && pg <= 0) return false;
     if (brand && p.brand !== brand) return false;
     if (source && p.source !== source) return false;
     if (!q) return true;
-    return (p.name + " " + p.flavor + " " + p.brand + " " + p.sku + " " + p.line).toLowerCase().includes(q);
+    return (p.name + " " + p.flavor + " " + p.brand + " " + (p.sku || "") + " " + (p.line || "")).toLowerCase().includes(q);
   });
 }
 function initInventoryFilters() {
-  var brands = Array.from(new Set((PRODUCTS || []).map(function (p) { return p.brand; }).filter(Boolean))).sort();
-  var sources = Array.from(new Set((PRODUCTS || []).map(function (p) { return p.source; }).filter(Boolean))).sort();
+  var brands = allBrands();
+  var sources = Array.from(new Set(catalogItems().map(function (p) { return p.source; }).filter(Boolean))).sort();
   var ib = $("#inv-brand");
   if (ib) ib.innerHTML = '<option value="">Все бренды</option>' + brands.map(function (b) { return '<option value="' + esc(b) + '">' + esc(b) + "</option>"; }).join("");
   var isrc = $("#inv-source");
@@ -148,16 +196,31 @@ function initInventoryFilters() {
 }
 function ensureDayControls() {
   var card = document.querySelector("#view-inventory .card");
-  if (!card || document.getElementById("inv-date")) return;
-  var bar = document.createElement("div");
-  bar.className = "inv-daybar";
-  bar.innerHTML = '<label class="inv-toggle">Дата съёма <input type="date" id="inv-date" /></label><button type="button" class="btn-sm" id="inv-copy-prev">Взять с прошлой недели</button><button type="button" class="btn-sm" id="inv-new-today">Сегодня</button>';
-  var filters = card.querySelector(".order-filters");
-  card.insertBefore(bar, filters || card.firstChild.nextSibling);
-  var hist = document.createElement("div");
-  hist.id = "inv-history";
-  hist.className = "inv-hist";
-  card.appendChild(hist);
+  if (!card) return;
+  if (!document.getElementById("inv-date")) {
+    var bar = document.createElement("div");
+    bar.className = "inv-daybar";
+    bar.innerHTML = '<label class="inv-toggle">Дата съёма <input type="date" id="inv-date" /></label><button type="button" class="btn-sm" id="inv-copy-prev">Взять с прошлой недели</button><button type="button" class="btn-sm" id="inv-new-today">Сегодня</button>';
+    var filters = card.querySelector(".order-filters");
+    card.insertBefore(bar, filters || card.firstChild.nextSibling);
+  }
+  if (!document.getElementById("inv-new-brand")) {
+    var add = document.createElement("div");
+    add.className = "inv-add";
+    var opts = allBrands().map(function (b) { return '<option value="' + esc(b) + '">' + esc(b) + "</option>"; }).join("");
+    add.innerHTML = '<select id="inv-new-brand"><option value="">Бренд не из прайса</option>' + opts + "</select>" +
+      '<input id="inv-new-name" placeholder="Вкус, которого нет в прайсе" />' +
+      '<button type="button" class="btn-sm" id="inv-add-item">Добавить на полку</button>';
+    var filters2 = card.querySelector(".order-filters");
+    if (filters2 && filters2.nextSibling) card.insertBefore(add, filters2.nextSibling);
+    else card.appendChild(add);
+  }
+  if (!document.getElementById("inv-history")) {
+    var hist = document.createElement("div");
+    hist.id = "inv-history";
+    hist.className = "inv-hist";
+    card.appendChild(hist);
+  }
 }
 function renderDayHistory() {
   var box = document.getElementById("inv-history");
@@ -187,7 +250,7 @@ function renderInventory() {
   var prev = prevDateBefore(INV_DATE);
   var rows = getInventoryFiltered();
   if (!rows.length) {
-    list.innerHTML = '<p class="empty">На ' + formatRuDate(INV_DATE) + " пусто. Снимите «Только на полке» и внесите вес с весов.</p>";
+    list.innerHTML = '<p class="empty">На ' + formatRuDate(INV_DATE) + " пусто. Добавьте вкус вручную, если его нет в прайсе (например Deus и Blackburn).</p>";
   } else {
     list.innerHTML = rows.slice(0, 250).map(function (p) {
       var g = stockGrams(p.id);
@@ -195,7 +258,8 @@ function renderInventory() {
       var dg = g - pg;
       return '<div class="order-row inv-row' + (g ? " inv-on-shelf" : "") + '">' +
         '<div class="order-row-main"><strong>' + esc(p.name) + "</strong>" +
-        '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · " + esc(p.weight) + "</div>" +
+        '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · " + esc(p.weight || "") +
+        (p.own ? ' · <span class="badge-own">не из прайса</span>' : "") + "</div>" +
         '<div class="inv-tare">банка −' + jarTare(p) + " г</div></div>" +
         '<div class="order-row-price">' + g + " г" +
         (prev ? '<div class="' + deltaClass(dg) + '">' + formatDelta(dg) + "</div>" : '<div class="order-row-meta">первый съём</div>') +
@@ -225,6 +289,7 @@ function showInventoryView(on) {
 }
 function initInventoryUI() {
   loadDays();
+  loadCustom();
   initInventoryFilters();
   if (inventoryBound) { renderInventory(); return; }
   inventoryBound = true;
@@ -235,7 +300,7 @@ function initInventoryUI() {
   var only = $("#inv-only-shelf");
   if (only) only.addEventListener("change", function () { inventoryOnlyShelf = !!only.checked; renderInventory(); });
   var hint = document.querySelector("#view-inventory .other-hint");
-  if (hint) hint.textContent = "Только граммы. Каждый съём — свой день. Плюс или минус считается к предыдущей дате.";
+  if (hint) hint.textContent = "Если бренда нет в прайсе (Деус, Blackburn и др.), добавьте вкус вручную. Счёт только в граммах, +/− к прошлому съёму.";
   document.addEventListener("click", function (e) {
     var tab = e.target && e.target.closest && e.target.closest(".tab");
     if (tab) showInventoryView(tab.getAttribute("data-view") === "inventory");
@@ -243,6 +308,7 @@ function initInventoryUI() {
     if (!t) return;
     if (t.id === "inv-copy-prev") return copyPrevDay();
     if (t.id === "inv-new-today") return switchDay(todayISO());
+    if (t.id === "inv-add-item") return addCustomItem();
     var dayBtn = t.closest && t.closest("[data-inv-day]");
     if (dayBtn) return switchDay(dayBtn.getAttribute("data-inv-day"));
     var plus = t.getAttribute && t.getAttribute("data-stock-plus");
@@ -256,11 +322,14 @@ function initInventoryUI() {
     if (t.id === "inv-date") return switchDay(t.value || todayISO());
     var id = t.getAttribute && t.getAttribute("data-stock-scale");
     if (id) {
-      var p = typeof findProduct === "function" ? findProduct(id) : null;
+      var p = findInvProduct(id);
       if (t.value === "" || t.value == null) setStockGrams(id, 0);
       else setStockGrams(id, netFromScale(p, t.value));
       renderInventory();
     }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.target && e.target.id === "inv-new-name") addCustomItem();
   });
   renderInventory();
 }
