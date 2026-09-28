@@ -1,10 +1,12 @@
-/* Inventory in grams; jar tare from учёт табака */
+/* Inventory in grams by date; jar tare from учёт табака */
 const STORAGE_STOCK = "hookahbase_stock_g_v1";
+const STORAGE_DAYS = "hookahbase_stock_by_day_v1";
+let DAYS = {};
+let INV_DATE = todayISO();
 let STOCK = {};
 let inventoryOnlyShelf = true;
 let inventoryBound = false;
 
-/* Взято с http://46.8.178.143:3100/api/brands — основная банка бренда */
 const JAR_TARE_RULES = [
   { keys: ["darkside sabotage", "ds sabotage", "саботаж"], tare: 37 },
   { keys: ["darkside", "дарксайд", "ds core", "ds shot", "ds gen"], tare: 52 },
@@ -33,18 +35,66 @@ const JAR_TARE_RULES = [
   if (document.getElementById("inv-style")) return;
   var st = document.createElement("style");
   st.id = "inv-style";
-  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.6rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:.9rem}.order-row-qty{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:62vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}";
+  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.6rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:.9rem}.order-row-qty{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:58vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}.inv-daybar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:0 0 .75rem}.inv-daybar input[type=date]{padding:.4rem .6rem;border:1px solid var(--border);border-radius:8px;font:inherit;background:var(--bg)}.inv-hist{margin-top:.9rem}.inv-hist-item{display:flex;justify-content:space-between;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid #f5f5f4;font-size:.88rem;cursor:pointer}.inv-hist-item.active{font-weight:700}";
   document.head.appendChild(st);
 })();
 
-function loadStock() {
-  try {
-    var raw = localStorage.getItem(STORAGE_STOCK);
-    STOCK = raw ? JSON.parse(raw) : {};
-  } catch (e) { STOCK = {}; }
+function todayISO() {
+  var d = new Date();
+  var m = String(d.getMonth() + 1).padStart(2, "0");
+  var day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
 }
-function saveStock() {
-  try { localStorage.setItem(STORAGE_STOCK, JSON.stringify(STOCK)); } catch (e) {}
+function formatRuDate(iso) {
+  if (!iso) return "—";
+  var p = iso.split("-");
+  return p[2] + "." + p[1] + "." + p[0];
+}
+function loadDays() {
+  try {
+    var raw = localStorage.getItem(STORAGE_DAYS);
+    DAYS = raw ? JSON.parse(raw) : {};
+  } catch (e) { DAYS = {}; }
+  if (!DAYS || typeof DAYS !== "object") DAYS = {};
+  try {
+    var old = localStorage.getItem(STORAGE_STOCK);
+    if (old && !Object.keys(DAYS).length) {
+      var parsed = JSON.parse(old);
+      if (parsed && typeof parsed === "object" && Object.keys(parsed).length) {
+        DAYS[todayISO()] = parsed;
+      }
+    }
+  } catch (e) {}
+  if (!INV_DATE) INV_DATE = todayISO();
+  if (!DAYS[INV_DATE]) DAYS[INV_DATE] = {};
+  STOCK = DAYS[INV_DATE];
+}
+function saveDays() {
+  DAYS[INV_DATE] = STOCK;
+  try { localStorage.setItem(STORAGE_DAYS, JSON.stringify(DAYS)); } catch (e) {}
+}
+function switchDay(iso) {
+  if (!iso) return;
+  DAYS[INV_DATE] = STOCK;
+  INV_DATE = iso;
+  if (!DAYS[INV_DATE]) DAYS[INV_DATE] = {};
+  STOCK = DAYS[INV_DATE];
+  saveDays();
+  var dateEl = document.getElementById("inv-date");
+  if (dateEl) dateEl.value = INV_DATE;
+  renderInventory();
+}
+function copyPrevDay() {
+  var dates = Object.keys(DAYS).filter(function (d) {
+    return d < INV_DATE && DAYS[d] && Object.keys(DAYS[d]).length;
+  }).sort();
+  if (!dates.length) { alert("Нет предыдущего съёма, чтобы скопировать"); return; }
+  var prev = dates[dates.length - 1];
+  if (!confirm("Подставить остатки с " + formatRuDate(prev) + " на " + formatRuDate(INV_DATE) + "?")) return;
+  STOCK = JSON.parse(JSON.stringify(DAYS[prev] || {}));
+  DAYS[INV_DATE] = STOCK;
+  saveDays();
+  renderInventory();
 }
 function stockGrams(id) {
   return Number(STOCK[id] || 0);
@@ -53,7 +103,7 @@ function setStockGrams(id, grams) {
   grams = Math.max(0, Math.round(Number(grams) || 0));
   if (!grams) delete STOCK[id];
   else STOCK[id] = grams;
-  saveStock();
+  saveDays();
 }
 function brandKey(p) {
   return ((p && (p.brand + " " + p.line + " " + p.name)) || "").toLowerCase();
@@ -89,12 +139,10 @@ function scaleFromNet(p, net) {
   if (!net) return "";
   return net + jarTare(p);
 }
-function inventoryTotals() {
-  var grams = 0;
-  var sum = 0;
-  var positions = 0;
-  Object.keys(STOCK).forEach(function (id) {
-    var g = STOCK[id] || 0;
+function totalsForMap(map) {
+  var grams = 0, sum = 0, positions = 0;
+  Object.keys(map || {}).forEach(function (id) {
+    var g = map[id] || 0;
     if (g <= 0) return;
     var p = typeof findProduct === "function" ? findProduct(id) : null;
     if (!p) return;
@@ -103,6 +151,9 @@ function inventoryTotals() {
     sum += lineSum(p, g);
   });
   return { positions: positions, grams: grams, sum: Math.round(sum) };
+}
+function inventoryTotals() {
+  return totalsForMap(STOCK);
 }
 function getInventoryFiltered() {
   var q = (($("#inv-search") && $("#inv-search").value) || "").trim().toLowerCase();
@@ -130,14 +181,52 @@ function initInventoryFilters() {
     return '<option value="' + esc(s) + '">' + esc(s) + "</option>";
   }).join("");
 }
+function ensureDayControls() {
+  var card = document.querySelector("#view-inventory .card");
+  if (!card || document.getElementById("inv-date")) return;
+  var bar = document.createElement("div");
+  bar.className = "inv-daybar";
+  bar.innerHTML =
+    '<label class="inv-toggle">Дата съёма <input type="date" id="inv-date" /></label>' +
+    '<button type="button" class="btn-sm" id="inv-copy-prev">Взять с прошлой недели</button>' +
+    '<button type="button" class="btn-sm" id="inv-new-today">Сегодня</button>';
+  var filters = card.querySelector(".order-filters");
+  if (filters) card.insertBefore(bar, filters);
+  else card.insertBefore(bar, card.firstChild.nextSibling);
+  var hist = document.createElement("div");
+  hist.id = "inv-history";
+  hist.className = "inv-hist";
+  card.appendChild(hist);
+}
+function renderDayHistory() {
+  var box = document.getElementById("inv-history");
+  if (!box) return;
+  var dates = Object.keys(DAYS).filter(function (d) {
+    return DAYS[d] && Object.keys(DAYS[d]).some(function (id) { return DAYS[d][id] > 0; });
+  }).sort().reverse();
+  if (!dates.length) {
+    box.innerHTML = '<p class="empty" style="padding:.6rem 0">Пока нет сохранённых съёмов</p>';
+    return;
+  }
+  box.innerHTML = "<h3 style=\"font-size:1rem;margin:0 0 .4rem\">Съёмы по дням</h3>" + dates.map(function (d) {
+    var t = totalsForMap(DAYS[d]);
+    var cls = d === INV_DATE ? "inv-hist-item active" : "inv-hist-item";
+    return '<div class="' + cls + '" data-inv-day="' + d + '"><div>' + formatRuDate(d) +
+      '<div class="order-row-meta">' + t.positions + " поз. · " + t.grams + " г</div></div><strong>" +
+      fmt(t.sum) + "</strong></div>";
+  }).join("");
+}
 function renderInventory() {
+  ensureDayControls();
+  var dateEl = document.getElementById("inv-date");
+  if (dateEl && dateEl.value !== INV_DATE) dateEl.value = INV_DATE;
   var list = $("#inv-list");
   var foot = $("#inv-footer");
   if (!list) return;
   var totals = inventoryTotals();
   var rows = getInventoryFiltered();
   if (!rows.length) {
-    list.innerHTML = '<p class="empty">На полке пусто. Снимите галочку «Только на полке» и введите вес с весов (с банкой).</p>';
+    list.innerHTML = '<p class="empty">На ' + formatRuDate(INV_DATE) + ' на полке пусто. Снимите галочку «Только на полке» и введите вес с весов.</p>';
   } else {
     var slice = rows.slice(0, 250);
     list.innerHTML = slice.map(function (p) {
@@ -154,18 +243,19 @@ function renderInventory() {
         (g ? '<div class="order-row-meta">' + g + " г = " + fmt(Math.round(line)) + "</div>" : "") + "</div>" +
         '<div class="order-row-qty">' +
         '<button type="button" class="btn-sm" data-stock-minus="' + esc(p.id) + '">-5</button>' +
-        '<input class="inv-qty" type="number" min="0" step="1" value="' + shown + '" placeholder="г с весов" data-stock-scale="' + esc(p.id) + '" title="Вес с весов вместе с банкой" />' +
+        '<input class="inv-qty" type="number" min="0" step="1" value="' + shown + '" placeholder="г с весов" data-stock-scale="' + esc(p.id) + '" />' +
         '<button type="button" class="btn-sm" data-stock-plus="' + esc(p.id) + '">+5</button>' +
         "</div></div>";
     }).join("") + (rows.length > 250 ? '<p class="empty">Показано 250 из ' + rows.length + ". Уточните поиск.</p>" : "");
   }
   if (foot) {
     foot.innerHTML =
-      '<div class="budget-item"><span class="budget-label">В прайсе</span><strong>' + (PRODUCTS || []).length + "</strong></div>" +
+      '<div class="budget-item"><span class="budget-label">Съём</span><strong>' + formatRuDate(INV_DATE) + "</strong></div>" +
       '<div class="budget-item"><span class="budget-label">На полке (позиции)</span><strong>' + totals.positions + "</strong></div>" +
       '<div class="budget-item"><span class="budget-label">Грамм табака</span><strong>' + totals.grams + " г</strong></div>" +
-      '<div class="budget-item budget-remain"><span class="budget-label">Сумма табака на полке</span><strong>' + fmt(totals.sum) + "</strong></div>";
+      '<div class="budget-item budget-remain"><span class="budget-label">Сумма табака на этот день</span><strong>' + fmt(totals.sum) + "</strong></div>";
   }
+  renderDayHistory();
 }
 function showInventoryView(on) {
   var el = document.getElementById("view-inventory");
@@ -180,7 +270,7 @@ function applyScaleInput(id, raw) {
   setStockGrams(id, netFromScale(p, raw));
 }
 function initInventoryUI() {
-  loadStock();
+  loadDays();
   initInventoryFilters();
   if (inventoryBound) { renderInventory(); return; }
   inventoryBound = true;
@@ -200,16 +290,18 @@ function initInventoryUI() {
   }
   var hint = document.querySelector("#view-inventory .other-hint");
   if (hint) {
-    hint.textContent = "Вводите вес с весов вместе с банкой. Вес банки берётся из учёта табака: DS/Starline 52 г, большинство квадратных 37 г, стекло Бонч/Трофимофф/Антагонист/Догма — 155–179 г.";
+    hint.textContent = "Съём раз в неделю: выберите дату и введите вес с весов с банкой. Каждый день хранится отдельно. Внизу — история съёмов и сумма на выбранную дату.";
   }
   document.addEventListener("click", function (e) {
     var tab = e.target && e.target.closest && e.target.closest(".tab");
-    if (tab) {
-      var view = tab.getAttribute("data-view");
-      showInventoryView(view === "inventory");
-    }
+    if (tab) showInventoryView(tab.getAttribute("data-view") === "inventory");
     var t = e.target;
-    if (!t || !t.getAttribute) return;
+    if (!t) return;
+    if (t.id === "inv-copy-prev") { copyPrevDay(); return; }
+    if (t.id === "inv-new-today") { switchDay(todayISO()); return; }
+    var dayBtn = t.closest && t.closest("[data-inv-day]");
+    if (dayBtn) { switchDay(dayBtn.getAttribute("data-inv-day")); return; }
+    if (!t.getAttribute) return;
     var plus = t.getAttribute("data-stock-plus");
     var minus = t.getAttribute("data-stock-minus");
     if (plus) { setStockGrams(plus, stockGrams(plus) + 5); renderInventory(); return; }
@@ -217,8 +309,9 @@ function initInventoryUI() {
   });
   document.addEventListener("change", function (e) {
     var t = e.target;
-    if (!t || !t.getAttribute) return;
-    var id = t.getAttribute("data-stock-scale");
+    if (!t) return;
+    if (t.id === "inv-date") { switchDay(t.value || todayISO()); return; }
+    var id = t.getAttribute && t.getAttribute("data-stock-scale");
     if (id) { applyScaleInput(id, t.value); renderInventory(); }
   });
   renderInventory();
@@ -236,6 +329,5 @@ function bootInventory() {
 }
 window.renderInventory = renderInventory;
 window.initInventoryUI = initInventoryUI;
-window.loadStock = loadStock;
 window.inventoryTotals = inventoryTotals;
 bootInventory();
