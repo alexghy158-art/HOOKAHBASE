@@ -1,9 +1,33 @@
-/* Inventory in grams; jar tare subtracted on scale input */
+/* Inventory in grams; jar tare from учёт табака */
 const STORAGE_STOCK = "hookahbase_stock_g_v1";
-const JAR_TARE_G = 37;
 let STOCK = {};
 let inventoryOnlyShelf = true;
 let inventoryBound = false;
+
+/* Взято с http://46.8.178.143:3100/api/brands — основная банка бренда */
+const JAR_TARE_RULES = [
+  { keys: ["darkside sabotage", "ds sabotage", "саботаж"], tare: 37 },
+  { keys: ["darkside", "дарксайд", "ds core", "ds shot", "ds gen"], tare: 52 },
+  { keys: ["база", "base tobacco"], tare: 52 },
+  { keys: ["starline", "старлайн"], tare: 52 },
+  { keys: ["deus", "деус"], tare: 37 },
+  { keys: ["blackburn", "black burn", "блекберн"], tare: 37 },
+  { keys: ["sebero", "себеро"], tare: 37 },
+  { keys: ["наш", "nash"], tare: 37 },
+  { keys: ["overdose", "овердоз"], tare: 37 },
+  { keys: ["bliss", "блис"], tare: 37 },
+  { keys: ["trofimoff", "трофимоф"], tare: 179 },
+  { keys: ["bonche", "бонч"], tare: 157 },
+  { keys: ["sapphire", "сапфир"], tare: 37 },
+  { keys: ["antagonist", "антагонист"], tare: 155 },
+  { keys: ["jent"], tare: 37 },
+  { keys: ["северный", "severnyj", "severnyy"], tare: 37 },
+  { keys: ["сарма", "sarma"], tare: 37 },
+  { keys: ["satyr", "сатир"], tare: 40 },
+  { keys: ["musthave", "must have", "мастхэв"], tare: 37 },
+  { keys: ["догма", "dogma"], tare: 170 },
+  { keys: ["xuligan", "huligan", "хулиган"], tare: 40 }
+];
 
 (function injectInventoryStyles() {
   if (document.getElementById("inv-style")) return;
@@ -37,10 +61,13 @@ function brandKey(p) {
 function jarTare(p) {
   var s = brandKey(p);
   if (!s) return 0;
-  if (s.indexOf("darkside") >= 0 || s.indexOf("дарксайд") >= 0 || s.indexOf("ds core") >= 0 || s.indexOf("ds shot") >= 0) return JAR_TARE_G;
-  if (s.indexOf("starline") >= 0 || s.indexOf("старлайн") >= 0) return JAR_TARE_G;
-  if (s.indexOf("sabotage") >= 0 || s.indexOf("саботаж") >= 0) return JAR_TARE_G;
-  return 0;
+  for (var i = 0; i < JAR_TARE_RULES.length; i++) {
+    var rule = JAR_TARE_RULES[i];
+    for (var j = 0; j < rule.keys.length; j++) {
+      if (s.indexOf(rule.keys[j]) >= 0) return rule.tare;
+    }
+  }
+  return 37;
 }
 function packGrams(p) {
   var m = String((p && p.weight) || "").match(/(\d+(?:[.,]\d+)?)/);
@@ -56,8 +83,7 @@ function lineSum(p, grams) {
   return pricePerGram(p) * (grams || 0);
 }
 function netFromScale(p, scaleG) {
-  var tare = jarTare(p);
-  return Math.max(0, Math.round((Number(scaleG) || 0) - tare));
+  return Math.max(0, Math.round((Number(scaleG) || 0) - jarTare(p)));
 }
 function scaleFromNet(p, net) {
   if (!net) return "";
@@ -119,9 +145,7 @@ function renderInventory() {
       var tare = jarTare(p);
       var line = lineSum(p, g);
       var shown = scaleFromNet(p, g);
-      var tareHint = tare
-        ? '<div class="inv-tare">банка −' + tare + ' г. Ввесили в банке → табак ' + (g || 0) + ' г</div>'
-        : '<div class="order-row-meta">ввод чистого веса, банка не вычитается</div>';
+      var tareHint = '<div class="inv-tare">банка −' + tare + ' г. Ввесили в банке → табак ' + (g || 0) + ' г</div>';
       return '<div class="order-row inv-row' + (g ? " inv-on-shelf" : "") + '">' +
         '<div class="order-row-main"><strong>' + esc(p.name) + "</strong>" +
         '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · фасовка " + esc(p.weight) +
@@ -176,7 +200,7 @@ function initInventoryUI() {
   }
   var hint = document.querySelector("#view-inventory .other-hint");
   if (hint) {
-    hint.textContent = "Вводите вес с весов вместе с банкой. Для Darkside, Starline и Sabotage сразу вычитается 37 г банки. Сумма внизу — по цене за грамм из прайса.";
+    hint.textContent = "Вводите вес с весов вместе с банкой. Вес банки берётся из учёта табака: DS/Starline 52 г, большинство квадратных 37 г, стекло Бонч/Трофимофф/Антагонист/Догма — 155–179 г.";
   }
   document.addEventListener("click", function (e) {
     var tab = e.target && e.target.closest && e.target.closest(".tab");
