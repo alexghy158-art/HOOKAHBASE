@@ -1,5 +1,6 @@
-/* Inventory / stock on shelf */
-const STORAGE_STOCK = "hookahbase_stock_v1";
+/* Inventory in grams; jar tare subtracted on scale input */
+const STORAGE_STOCK = "hookahbase_stock_g_v1";
+const JAR_TARE_G = 37;
 let STOCK = {};
 let inventoryOnlyShelf = true;
 let inventoryBound = false;
@@ -8,7 +9,7 @@ let inventoryBound = false;
   if (document.getElementById("inv-style")) return;
   var st = document.createElement("style");
   st.id = "inv-style";
-  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:3.2rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:.9rem}.order-row-qty{display:flex;align-items:center;gap:.3rem}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:62vh}#inv-footer{margin-top:.9rem}";
+  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.4rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:.9rem}.order-row-qty{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:62vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}";
   document.head.appendChild(st);
 })();
 
@@ -21,37 +22,65 @@ function loadStock() {
 function saveStock() {
   try { localStorage.setItem(STORAGE_STOCK, JSON.stringify(STOCK)); } catch (e) {}
 }
-function stockQty(id) {
-  return STOCK[id] || 0;
+function stockGrams(id) {
+  return Number(STOCK[id] || 0);
 }
-function setStock(id, qty) {
-  qty = Math.max(0, parseInt(qty, 10) || 0);
-  if (!qty) delete STOCK[id];
-  else STOCK[id] = qty;
+function setStockGrams(id, grams) {
+  grams = Math.max(0, Math.round(Number(grams) || 0));
+  if (!grams) delete STOCK[id];
+  else STOCK[id] = grams;
   saveStock();
 }
+function brandKey(p) {
+  return ((p && (p.brand + " " + p.line + " " + p.name)) || "").toLowerCase();
+}
+function jarTare(p) {
+  var s = brandKey(p);
+  if (!s) return 0;
+  if (s.indexOf("darkside") >= 0 || s.indexOf("дарксайд") >= 0 || s.indexOf("ds core") >= 0 || s.indexOf("ds shot") >= 0) return JAR_TARE_G;
+  if (s.indexOf("starline") >= 0 || s.indexOf("старлайн") >= 0) return JAR_TARE_G;
+  if (s.indexOf("sabotage") >= 0 || s.indexOf("саботаж") >= 0) return JAR_TARE_G;
+  return 0;
+}
+function packGrams(p) {
+  var m = String((p && p.weight) || "").match(/(\d+(?:[.,]\d+)?)/);
+  if (!m) return 100;
+  return parseFloat(m[1].replace(",", ".")) || 100;
+}
+function pricePerGram(p) {
+  var w = packGrams(p);
+  if (!w) return 0;
+  return (p.price || 0) / w;
+}
+function lineSum(p, grams) {
+  return pricePerGram(p) * (grams || 0);
+}
+function netFromScale(p, scaleG) {
+  var tare = jarTare(p);
+  return Math.max(0, Math.round((Number(scaleG) || 0) - tare));
+}
 function inventoryTotals() {
-  var packs = 0;
+  var grams = 0;
   var sum = 0;
   var positions = 0;
   Object.keys(STOCK).forEach(function (id) {
-    var q = STOCK[id] || 0;
-    if (q <= 0) return;
+    var g = STOCK[id] || 0;
+    if (g <= 0) return;
     var p = typeof findProduct === "function" ? findProduct(id) : null;
     if (!p) return;
     positions += 1;
-    packs += q;
-    sum += (p.price || 0) * q;
+    grams += g;
+    sum += lineSum(p, g);
   });
-  return { positions: positions, packs: packs, sum: sum };
+  return { positions: positions, grams: grams, sum: Math.round(sum) };
 }
 function getInventoryFiltered() {
   var q = (($("#inv-search") && $("#inv-search").value) || "").trim().toLowerCase();
   var brand = ($("#inv-brand") && $("#inv-brand").value) || "";
   var source = ($("#inv-source") && $("#inv-source").value) || "";
   return (PRODUCTS || []).filter(function (p) {
-    var qty = stockQty(p.id);
-    if (inventoryOnlyShelf && qty <= 0) return false;
+    var g = stockGrams(p.id);
+    if (inventoryOnlyShelf && g <= 0) return false;
     if (brand && p.brand !== brand) return false;
     if (source && p.source !== source) return false;
     if (!q) return true;
@@ -78,22 +107,26 @@ function renderInventory() {
   var totals = inventoryTotals();
   var rows = getInventoryFiltered();
   if (!rows.length) {
-    list.innerHTML = '<p class="empty">На полке пусто. Снимите галочку «Только на полке», чтобы проставить остатки из прайса.</p>';
+    list.innerHTML = '<p class="empty">На полке пусто. Снимите галочку «Только на полке» и введите вес с весов (с банкой).</p>';
   } else {
     var slice = rows.slice(0, 250);
     list.innerHTML = slice.map(function (p) {
-      var qty = stockQty(p.id);
-      var line = (p.price || 0) * qty;
-      return '<div class="order-row inv-row' + (qty ? " inv-on-shelf" : "") + '">' +
+      var g = stockGrams(p.id);
+      var tare = jarTare(p);
+      var line = lineSum(p, g);
+      var tareHint = tare
+        ? '<div class="inv-tare">банка ' + tare + ' г — вводите вес с весов, минуснётся само</div>'
+        : '<div class="order-row-meta">без вычета банки</div>';
+      return '<div class="order-row inv-row' + (g ? " inv-on-shelf" : "") + '">' +
         '<div class="order-row-main"><strong>' + esc(p.name) + "</strong>" +
-        '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · " + esc(p.weight) +
-        ' · <span class="badge-src">' + esc(p.source) + "</span></div></div>" +
-        '<div class="order-row-price">' + fmt(p.price) +
-        (qty ? '<div class="order-row-meta">на полке: ' + fmt(line) + "</div>" : "") + "</div>" +
+        '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · банка " + esc(p.weight) +
+        ' · <span class="badge-src">' + esc(p.source) + "</span></div>" + tareHint + "</div>" +
+        '<div class="order-row-price">' + Math.round(pricePerGram(p) * 100) / 100 + " ₽/г" +
+        (g ? '<div class="order-row-meta">' + g + " г = " + fmt(Math.round(line)) + "</div>" : "") + "</div>" +
         '<div class="order-row-qty">' +
-        '<button type="button" class="btn-sm" data-stock-minus="' + esc(p.id) + '">-</button>' +
-        '<input class="inv-qty" type="number" min="0" step="1" value="' + qty + '" data-stock-input="' + esc(p.id) + '" />' +
-        '<button type="button" class="btn-sm" data-stock-plus="' + esc(p.id) + '">+</button>' +
+        '<button type="button" class="btn-sm" data-stock-minus="' + esc(p.id) + '">-5</button>' +
+        '<input class="inv-qty" type="number" min="0" step="1" value="' + (g || "") + '" placeholder="г" data-stock-scale="' + esc(p.id) + '" title="Вес с весов, г" />' +
+        '<button type="button" class="btn-sm" data-stock-plus="' + esc(p.id) + '">+5</button>' +
         "</div></div>";
     }).join("") + (rows.length > 250 ? '<p class="empty">Показано 250 из ' + rows.length + ". Уточните поиск.</p>" : "");
   }
@@ -101,7 +134,7 @@ function renderInventory() {
     foot.innerHTML =
       '<div class="budget-item"><span class="budget-label">В прайсе</span><strong>' + (PRODUCTS || []).length + "</strong></div>" +
       '<div class="budget-item"><span class="budget-label">На полке (позиции)</span><strong>' + totals.positions + "</strong></div>" +
-      '<div class="budget-item"><span class="budget-label">Пачек на полке</span><strong>' + totals.packs + "</strong></div>" +
+      '<div class="budget-item"><span class="budget-label">Грамм табака</span><strong>' + totals.grams + " г</strong></div>" +
       '<div class="budget-item budget-remain"><span class="budget-label">Сумма табака на полке</span><strong>' + fmt(totals.sum) + "</strong></div>";
   }
 }
@@ -111,6 +144,12 @@ function showInventoryView(on) {
   var mf = document.getElementById("matrix-filters");
   if (on && mf) mf.hidden = true;
   if (on) renderInventory();
+}
+function applyScaleInput(id, raw) {
+  var p = typeof findProduct === "function" ? findProduct(id) : null;
+  var val = Number(raw);
+  if (!raw && raw !== 0) { setStockGrams(id, 0); return; }
+  setStockGrams(id, netFromScale(p, val));
 }
 function initInventoryUI() {
   loadStock();
@@ -131,6 +170,10 @@ function initInventoryUI() {
       renderInventory();
     });
   }
+  var hint = document.querySelector("#view-inventory .other-hint");
+  if (hint) {
+    hint.textContent = "Вводите вес с весов вместе с банкой. Для Darkside, Starline и Sabotage автоматически вычитается 37 г банки. Сумма внизу — по цене за грамм из прайса.";
+  }
   document.addEventListener("click", function (e) {
     var tab = e.target && e.target.closest && e.target.closest(".tab");
     if (tab) {
@@ -141,14 +184,14 @@ function initInventoryUI() {
     if (!t || !t.getAttribute) return;
     var plus = t.getAttribute("data-stock-plus");
     var minus = t.getAttribute("data-stock-minus");
-    if (plus) { setStock(plus, stockQty(plus) + 1); renderInventory(); return; }
-    if (minus) { setStock(minus, stockQty(minus) - 1); renderInventory(); }
+    if (plus) { setStockGrams(plus, stockGrams(plus) + 5); renderInventory(); return; }
+    if (minus) { setStockGrams(minus, stockGrams(minus) - 5); renderInventory(); }
   });
   document.addEventListener("change", function (e) {
     var t = e.target;
     if (!t || !t.getAttribute) return;
-    var id = t.getAttribute("data-stock-input");
-    if (id) { setStock(id, t.value); renderInventory(); }
+    var id = t.getAttribute("data-stock-scale");
+    if (id) { applyScaleInput(id, t.value); renderInventory(); }
   });
   renderInventory();
 }
