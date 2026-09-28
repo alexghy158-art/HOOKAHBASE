@@ -9,7 +9,7 @@ let inventoryBound = false;
   if (document.getElementById("inv-style")) return;
   var st = document.createElement("style");
   st.id = "inv-style";
-  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.4rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:.9rem}.order-row-qty{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:62vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}";
+  st.textContent = ".inv-title{font-size:1.05rem;margin-bottom:.25rem}.inv-toggle{display:flex;align-items:center;gap:.4rem;font-size:.88rem;white-space:nowrap}.inv-qty{width:4.6rem;text-align:center;padding:.25rem .2rem;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:.9rem}.order-row-qty{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}.inv-on-shelf{background:#f0fdf4}#inv-list{max-height:62vh}#inv-footer{margin-top:.9rem}.inv-tare{font-size:.72rem;color:#0f766e}";
   document.head.appendChild(st);
 })();
 
@@ -58,6 +58,10 @@ function lineSum(p, grams) {
 function netFromScale(p, scaleG) {
   var tare = jarTare(p);
   return Math.max(0, Math.round((Number(scaleG) || 0) - tare));
+}
+function scaleFromNet(p, net) {
+  if (!net) return "";
+  return net + jarTare(p);
 }
 function inventoryTotals() {
   var grams = 0;
@@ -114,18 +118,19 @@ function renderInventory() {
       var g = stockGrams(p.id);
       var tare = jarTare(p);
       var line = lineSum(p, g);
+      var shown = scaleFromNet(p, g);
       var tareHint = tare
-        ? '<div class="inv-tare">банка ' + tare + ' г — вводите вес с весов, минуснётся само</div>'
-        : '<div class="order-row-meta">без вычета банки</div>';
+        ? '<div class="inv-tare">банка −' + tare + ' г. Ввесили в банке → табак ' + (g || 0) + ' г</div>'
+        : '<div class="order-row-meta">ввод чистого веса, банка не вычитается</div>';
       return '<div class="order-row inv-row' + (g ? " inv-on-shelf" : "") + '">' +
         '<div class="order-row-main"><strong>' + esc(p.name) + "</strong>" +
-        '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · банка " + esc(p.weight) +
+        '<div class="order-row-meta">' + esc(p.brand) + " · " + esc(p.flavor || "") + " · фасовка " + esc(p.weight) +
         ' · <span class="badge-src">' + esc(p.source) + "</span></div>" + tareHint + "</div>" +
-        '<div class="order-row-price">' + Math.round(pricePerGram(p) * 100) / 100 + " ₽/г" +
+        '<div class="order-row-price">' + (Math.round(pricePerGram(p) * 100) / 100) + " ₽/г" +
         (g ? '<div class="order-row-meta">' + g + " г = " + fmt(Math.round(line)) + "</div>" : "") + "</div>" +
         '<div class="order-row-qty">' +
         '<button type="button" class="btn-sm" data-stock-minus="' + esc(p.id) + '">-5</button>' +
-        '<input class="inv-qty" type="number" min="0" step="1" value="' + (g || "") + '" placeholder="г" data-stock-scale="' + esc(p.id) + '" title="Вес с весов, г" />' +
+        '<input class="inv-qty" type="number" min="0" step="1" value="' + shown + '" placeholder="г с весов" data-stock-scale="' + esc(p.id) + '" title="Вес с весов вместе с банкой" />' +
         '<button type="button" class="btn-sm" data-stock-plus="' + esc(p.id) + '">+5</button>' +
         "</div></div>";
     }).join("") + (rows.length > 250 ? '<p class="empty">Показано 250 из ' + rows.length + ". Уточните поиск.</p>" : "");
@@ -147,9 +152,8 @@ function showInventoryView(on) {
 }
 function applyScaleInput(id, raw) {
   var p = typeof findProduct === "function" ? findProduct(id) : null;
-  var val = Number(raw);
-  if (!raw && raw !== 0) { setStockGrams(id, 0); return; }
-  setStockGrams(id, netFromScale(p, val));
+  if (raw === "" || raw == null) { setStockGrams(id, 0); return; }
+  setStockGrams(id, netFromScale(p, raw));
 }
 function initInventoryUI() {
   loadStock();
@@ -172,7 +176,7 @@ function initInventoryUI() {
   }
   var hint = document.querySelector("#view-inventory .other-hint");
   if (hint) {
-    hint.textContent = "Вводите вес с весов вместе с банкой. Для Darkside, Starline и Sabotage автоматически вычитается 37 г банки. Сумма внизу — по цене за грамм из прайса.";
+    hint.textContent = "Вводите вес с весов вместе с банкой. Для Darkside, Starline и Sabotage сразу вычитается 37 г банки. Сумма внизу — по цене за грамм из прайса.";
   }
   document.addEventListener("click", function (e) {
     var tab = e.target && e.target.closest && e.target.closest(".tab");
