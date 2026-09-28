@@ -29,6 +29,7 @@
       <button type="button" class="tab" data-view="matrix">Матрица</button>
       <button type="button" class="tab" data-view="brands">По брендам</button>
       <button type="button" class="tab" data-view="order">Заказ</button>
+      <button type="button" class="tab" data-view="inventory">Инвентарь</button>
       <button type="button" class="tab" data-view="other">Другое</button>
     </section>
     <section class="filters card" id="matrix-filters">
@@ -121,6 +122,20 @@
         </div>
       </div>
     </section>
+    <section id="view-inventory" class="view" hidden>
+      <div class="card">
+        <h2 class="inv-title">Инвентаризация табака</h2>
+        <p class="other-hint">В прайсе все позиции. На полке отмечайте только то, что реально есть. Внизу — сумма остатков по цене из прайса.</p>
+        <div class="order-filters">
+          <input type="search" id="inv-search" placeholder="Поиск по табаку: вкус, бренд, артикул…" />
+          <select id="inv-brand"><option value="">Все бренды</option></select>
+          <select id="inv-source"><option value="">Все прайсы</option></select>
+          <label class="inv-toggle"><input type="checkbox" id="inv-only-shelf" checked /> Только на полке</label>
+        </div>
+        <div class="order-list" id="inv-list"></div>
+        <div class="budget-bar budget-bar-compact" id="inv-footer"></div>
+      </div>
+    </section>
     <section id="view-other" class="view" hidden>
       <div class="other-layout">
         <div class="card other-form-card">
@@ -160,5 +175,6 @@
   </footer>
   <script src="app.js"></script>
   <script src="budget.js"></script>
+  <script src="inventory.js"></script>
 </body>
 </html>
